@@ -25,7 +25,10 @@ bedrockDataSource.grantPrincipal.addToPrincipalPolicy(
   new PolicyStatement({
     actions: ["bedrock:InvokeModel"],
     resources: [
+      `arn:aws:bedrock:us-west-2:${backend.stack.account}:inference-profile/us.amazon.nova-micro-v1:0`,
       "arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-micro-v1:0",
+      "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0",
+      "arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-micro-v1:0",
     ],
   })
 );

@@ -1,122 +1,98 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
 
-function App() {
-  const [count, setCount] = useState(0)
+import { useState } from "react";
+import { Authenticator } from "@aws-amplify/ui-react";
+import "@aws-amplify/ui-react/styles.css";
+import { generateClient } from "aws-amplify/data";
+import type { Schema } from "../amplify/data/resource";
+
+const client = generateClient<Schema>();
+
+function RecipeGenerator() {
+  const [ingredients, setIngredients] = useState("");
+  const [recipe, setRecipe] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function generateRecipe() {
+    const ingredientList = ingredients
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    if (ingredientList.length === 0) {
+      setError("Please enter at least one ingredient.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setRecipe("");
+
+    try {
+      const { data, errors } = await client.queries.askBedrock({
+        ingredients: ingredientList,
+      });
+
+      if (errors?.length) {
+        throw new Error(errors.map((e) => e.message).join(", "));
+      }
+
+      setRecipe(data?.body ?? "No recipe was generated.");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Something went wrong."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <main style={{ maxWidth: 700, margin: "40px auto", padding: 20 }}>
+      <h1>AI Recipe Generator</h1>
+      <p>Enter ingredients to generate a recipe using Amazon Nova Micro.</p>
 
-      <div className="ticks"></div>
+      <label htmlFor="ingredients">Ingredients</label>
+      <textarea
+        id="ingredients"
+        value={ingredients}
+        onChange={(e) => setIngredients(e.target.value)}
+        placeholder="Chicken, rice, garlic, onions"
+        rows={4}
+        style={{ width: "100%", padding: 12, marginTop: 8 }}
+      />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      <button
+        onClick={generateRecipe}
+        disabled={loading}
+        style={{ marginTop: 16, padding: "12px 20px" }}
+      >
+        {loading ? "Generating..." : "Generate Recipe"}
+      </button>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      {error && <p role="alert" style={{ color: "red" }}>{error}</p>}
+
+      {recipe && (
+        <section style={{ marginTop: 24 }}>
+          <h2>Generated Recipe</h2>
+          <div style={{ whiteSpace: "pre-wrap" }}>{recipe}</div>
+        </section>
+      )}
+    </main>
+  );
 }
 
-export default App
+export default function App() {
+  return (
+    <Authenticator>
+      {({ signOut }) => (
+        <>
+          <div style={{ textAlign: "right", padding: 16 }}>
+            <button onClick={signOut}>Sign Out</button>
+          </div>
+          <RecipeGenerator />
+        </>
+      )}
+    </Authenticator>
+  );
+}
