@@ -1,43 +1,52 @@
 
-import { useState } from "react";
-import { Authenticator } from "@aws-amplify/ui-react";
+import { useState, type FormEvent } from "react";
+import {
+  Authenticator,
+  Loader,
+  Placeholder,
+} from "@aws-amplify/ui-react";
 import "@aws-amplify/ui-react/styles.css";
 import { generateClient } from "aws-amplify/data";
 import type { Schema } from "../amplify/data/resource";
+import "./App.css";
 
-const client = generateClient<Schema>();
+const amplifyClient = generateClient<Schema>({
+  authMode: "userPool",
+});
 
 function RecipeGenerator() {
-  const [ingredients, setIngredients] = useState("");
-  const [recipe, setRecipe] = useState("");
+  const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function generateRecipe() {
-    const ingredientList = ingredients
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const formData = new FormData(event.currentTarget);
+    const ingredients = (formData.get("ingredients")?.toString() ?? "")
       .split(",")
       .map((item) => item.trim())
       .filter(Boolean);
 
-    if (ingredientList.length === 0) {
+    if (ingredients.length === 0) {
       setError("Please enter at least one ingredient.");
       return;
     }
 
     setLoading(true);
     setError("");
-    setRecipe("");
+    setResult("");
 
     try {
-      const { data, errors } = await client.queries.askBedrock({
-        ingredients: ingredientList,
+      const { data, errors } = await amplifyClient.queries.askBedrock({
+        ingredients,
       });
 
       if (errors?.length) {
         throw new Error(errors.map((e) => e.message).join(", "));
       }
 
-      setRecipe(data?.body ?? "No recipe was generated.");
+      setResult(data?.body ?? "No recipe was generated.");
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Something went wrong."
@@ -45,40 +54,64 @@ function RecipeGenerator() {
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   return (
-    <main style={{ maxWidth: 700, margin: "40px auto", padding: 20 }}>
-      <h1>AI Recipe Generator</h1>
-      <p>Enter ingredients to generate a recipe using Amazon Nova Micro.</p>
+    <div className="app-container">
+      <div className="header-container">
+        <h1 className="main-header">
+          Meet Your Personal
+          <br />
+          <span className="highlight">Recipe AI</span>
+        </h1>
 
-      <label htmlFor="ingredients">Ingredients</label>
-      <textarea
-        id="ingredients"
-        value={ingredients}
-        onChange={(e) => setIngredients(e.target.value)}
-        placeholder="Chicken, rice, garlic, onions"
-        rows={4}
-        style={{ width: "100%", padding: 12, marginTop: 8 }}
-      />
+        <p className="description">
+          Enter a few ingredients separated by commas, and Amazon Nova
+          Micro will generate a recipe just for you.
+        </p>
+      </div>
 
-      <button
-        onClick={generateRecipe}
-        disabled={loading}
-        style={{ marginTop: 16, padding: "12px 20px" }}
-      >
-        {loading ? "Generating..." : "Generate Recipe"}
-      </button>
+      <form onSubmit={onSubmit} className="form-container">
+        <div className="search-container">
+          <input
+            type="text"
+            className="wide-input"
+            id="ingredients"
+            name="ingredients"
+            placeholder="Chicken, rice, garlic, onions..."
+            required
+          />
 
-      {error && <p role="alert" style={{ color: "red" }}>{error}</p>}
+          <button
+            type="submit"
+            className="search-button"
+            disabled={loading}
+          >
+            {loading ? "Generating..." : "Generate"}
+          </button>
+        </div>
+      </form>
 
-      {recipe && (
-        <section style={{ marginTop: 24 }}>
-          <h2>Generated Recipe</h2>
-          <div style={{ whiteSpace: "pre-wrap" }}>{recipe}</div>
-        </section>
-      )}
-    </main>
+      <div className="result-container">
+        {error && (
+          <p role="alert" style={{ color: "#dc2626" }}>
+            {error}
+          </p>
+        )}
+
+        {loading ? (
+          <div className="loader-container">
+            <p>Generating your recipe...</p>
+            <Loader size="large" />
+            <Placeholder size="large" />
+            <Placeholder size="large" />
+            <Placeholder size="large" />
+          </div>
+        ) : (
+          result && <p className="result">{result}</p>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -87,9 +120,12 @@ export default function App() {
     <Authenticator>
       {({ signOut }) => (
         <>
-          <div style={{ textAlign: "right", padding: 16 }}>
-            <button onClick={signOut}>Sign Out</button>
+          <div className="sign-out-container">
+            <button onClick={signOut} className="sign-out-button">
+              Sign Out
+            </button>
           </div>
+
           <RecipeGenerator />
         </>
       )}

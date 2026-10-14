@@ -99,3 +99,26 @@
   font-weight: bold;
   text-align: left; /* Align text to the left */
 }
+
+.sign-out-container {
+  display: flex;
+  justify-content: flex-end;
+  padding: 20px;
+}
+
+.sign-out-button {
+  background-color: #374151;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.sign-out-button:hover {
+  background-color: #1f2937;
+}
+
+.result {
+  white-space: pre-wrap;
+}
