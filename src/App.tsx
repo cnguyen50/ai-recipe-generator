@@ -1,133 +1,140 @@
-
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import {
   Authenticator,
-  Loader,
-  Placeholder,
+  Button,
+  Text,
+  TextField,
+  Heading,
+  Flex,
+  View,
+  Grid,
+  Divider,
 } from "@aws-amplify/ui-react";
+import { Amplify } from "aws-amplify";
 import "@aws-amplify/ui-react/styles.css";
 import { generateClient } from "aws-amplify/data";
 import type { Schema } from "../amplify/data/resource";
-import "./App.css";
+import outputs from "../amplify_outputs.json";
 
-const amplifyClient = generateClient<Schema>({
+type Expense = Schema["Expense"]["type"];
+
+Amplify.configure(outputs);
+const client = generateClient<Schema>({
   authMode: "userPool",
 });
 
-function RecipeGenerator() {
-  const [result, setResult] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const formData = new FormData(event.currentTarget);
-    const ingredients = (formData.get("ingredients")?.toString() ?? "")
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
-
-    if (ingredients.length === 0) {
-      setError("Please enter at least one ingredient.");
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-    setResult("");
-
-    try {
-      const { data, errors } = await amplifyClient.queries.askBedrock({
-        ingredients,
-      });
-
-      if (errors?.length) {
-        throw new Error(errors.map((e) => e.message).join(", "));
-      }
-
-      setResult(data?.body ?? "No recipe was generated.");
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Something went wrong."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="app-container">
-      <div className="header-container">
-        <h1 className="main-header">
-          Meet Your Personal
-          <br />
-          <span className="highlight">Recipe AI</span>
-        </h1>
-
-        <p className="description">
-          Enter a few ingredients separated by commas, and Amazon Nova
-          Micro will generate a recipe just for you.
-        </p>
-      </div>
-
-      <form onSubmit={onSubmit} className="form-container">
-        <div className="search-container">
-          <input
-            type="text"
-            className="wide-input"
-            id="ingredients"
-            name="ingredients"
-            placeholder="Chicken, rice, garlic, onions..."
-            required
-          />
-
-          <button
-            type="submit"
-            className="search-button"
-            disabled={loading}
-          >
-            {loading ? "Generating..." : "Generate"}
-          </button>
-        </div>
-      </form>
-
-      <div className="result-container">
-        {error && (
-          <p role="alert" style={{ color: "#dc2626" }}>
-            {error}
-          </p>
-        )}
-
-        {loading ? (
-          <div className="loader-container">
-            <p>Generating your recipe...</p>
-            <Loader size="large" />
-            <Placeholder size="large" />
-            <Placeholder size="large" />
-            <Placeholder size="large" />
-          </div>
-        ) : (
-          result && <p className="result">{result}</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+
+  useEffect(() => {
+    const subscription = client.models.Expense.observeQuery().subscribe({
+      next: (data) => setExpenses([...data.items]),
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function createExpense(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+
+    await client.models.Expense.create({
+      name: String(form.get("name") ?? ""),
+      amount: Number(form.get("amount")),
+    });
+
+    formElement.reset();
+  }
+
+  async function deleteExpense({ id }: Pick<Expense, "id">) {
+    const toBeDeletedExpense = {
+      id,
+    };
+
+    await client.models.Expense.delete(toBeDeletedExpense);
+  }
+
   return (
     <Authenticator>
       {({ signOut }) => (
-        <>
-          <div className="sign-out-container">
-            <button onClick={signOut} className="sign-out-button">
-              Sign Out
-            </button>
-          </div>
+        <Flex
+          className="App"
+          justifyContent="center"
+          alignItems="center"
+          direction="column"
+          width="70%"
+          margin="0 auto"
+        >
+          <Heading level={1}>Expense Tracker</Heading>
+          <View as="form" margin="3rem 0" onSubmit={createExpense}>
+            <Flex
+              direction="column"
+              justifyContent="center"
+              gap="2rem"
+              padding="2rem"
+            >
+              <TextField
+                name="name"
+                placeholder="Expense Name"
+                label="Expense Name"
+                labelHidden
+                variation="quiet"
+                required
+              />
+              <TextField
+                name="amount"
+                placeholder="Expense Amount"
+                label="Expense Amount"
+                type="number"
+                step="any"
+                labelHidden
+                variation="quiet"
+                required
+              />
 
-          <RecipeGenerator />
-        </>
+              <Button type="submit" variation="primary">
+                Create Expense
+              </Button>
+            </Flex>
+          </View>
+          <Divider />
+          <Heading level={2}>Expenses</Heading>
+          <Grid
+            margin="3rem 0"
+            autoFlow="column"
+            justifyContent="center"
+            gap="2rem"
+            alignContent="center"
+          >
+            {expenses.map((expense) => (
+              <Flex
+                key={expense.id || expense.name}
+                direction="column"
+                justifyContent="center"
+                alignItems="center"
+                gap="2rem"
+                border="1px solid #ccc"
+                padding="2rem"
+                borderRadius="5%"
+                className="box"
+              >
+                <View>
+                  <Heading level={3}>{expense.name}</Heading>
+                </View>
+                <Text fontStyle="italic">${expense.amount}</Text>
+
+                <Button
+                  variation="destructive"
+                  onClick={() => deleteExpense(expense)}
+                >
+                  Delete note
+                </Button>
+              </Flex>
+            ))}
+          </Grid>
+          <Button onClick={signOut}>Sign Out</Button>
+        </Flex>
       )}
     </Authenticator>
   );

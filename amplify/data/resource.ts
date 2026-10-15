@@ -1,25 +1,12 @@
-
-import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
+import { type ClientSchema, a, defineData } from '@aws-amplify/backend';
 
 const schema = a.schema({
-  BedrockResponse: a.customType({
-    body: a.string(),
-    error: a.string(),
-  }),
-
-  askBedrock: a
-    .query()
-    .arguments({
-      ingredients: a.string().array(),
+  Expense: a
+    .model({
+      name: a.string(),
+      amount: a.float(),
     })
-    .returns(a.ref("BedrockResponse"))
-    .authorization((allow) => [allow.authenticated()])
-    .handler(
-      a.handler.custom({
-        entry: "./bedrock.js",
-        dataSource: "bedrockDS",
-      })
-    ),
+    .authorization((allow) => [allow.owner()]),
 });
 
 export type Schema = ClientSchema<typeof schema>;
@@ -27,6 +14,6 @@ export type Schema = ClientSchema<typeof schema>;
 export const data = defineData({
   schema,
   authorizationModes: {
-    defaultAuthorizationMode: "userPool",
+    defaultAuthorizationMode: 'userPool',
   },
 });
